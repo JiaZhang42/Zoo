@@ -7,14 +7,14 @@ library(glmnet)
 
 
 # load state variables, factors, and stock returns
-state1 <- read_csv('D:/zoo/Data/state variables/T10Y2Y.csv')
-pub_factors <- read_csv('D:/zoo/Data/pubfactors19592017.csv', col_types = cols(DATE = col_date('%Y%m%d'))) %>%
+state1 <- read_csv('~/T10Y2Y.csv')
+pub_factors <- read_csv('~/pubfactors19592017.csv', col_types = cols(DATE = col_date('%Y%m%d'))) %>%
   mutate(DATE = floor_date(DATE, 'month'))
-num_factors <- read_csv('D:/zoo/Data/numfactors.csv', col_types = cols(DATE = col_date('%Y%m%d'))) %>%
+num_factors <- read_csv('~/numfactors.csv', col_types = cols(DATE = col_date('%Y%m%d'))) %>%
   mutate(DATE = floor_date(DATE, 'month'))
-dum_factors <- read_csv('D:/zoo/Data/dumfactors.csv', col_types = cols(DATE = col_date('%Y%m%d'))) %>%
+dum_factors <- read_csv('~/dumfactors.csv', col_types = cols(DATE = col_date('%Y%m%d'))) %>%
   mutate(DATE = floor_date(DATE, 'month'))
-stock_returns <- read_csv('D:/zoo/Data/stockreturnsm19572019.csv', col_types = cols(DATE = col_date('%Y%m%d'))) 
+stock_returns <- read_csv('~/stockreturnsm19572019.csv', col_types = cols(DATE = col_date('%Y%m%d'))) 
 
 
 # state variables
@@ -28,9 +28,7 @@ factors <- state2 %>%
   inner_join(pub_factors, by = 'DATE') %>% 
   inner_join(num_factors, by = 'DATE') %>% 
   inner_join(dum_factors, by = 'DATE')
-factors %>% ggplot() + 
-  geom_histogram(aes(x = R_IA, y=..density..), fill="steelblue", colour="black") + 
-  stat_function(fun = dnorm, args = list(mean = mean(factors$R_IA), sd = sd(factors$R_IA)))
+
 
 # NA values in factors
 # num_of_na <- function(x){
@@ -43,9 +41,6 @@ colSums(is.na(factors))
 #delete rows in state without factor values
 state <- state2 %>% 
   semi_join(factors, by = 'DATE')
-state %>% 
-  ggplot(aes(x = STATE)) +
-  geom_histogram(fill="steelblue", colour="black")
 
 #sorted state value without date
 sorted_state <- state %>% 
@@ -60,9 +55,6 @@ returns <- stock_returns %>%
   group_by(PERMNO) %>% 
   mutate(RET = RET - mean(RET, na.rm = T)) %>% 
   pivot_wider(names_from = PERMNO, values_from = RET)
-
-return1 <- returns %>% semi_join(state, by = 'DATE')
-summary(rowSums(!is.na(return1)))
 
 # remove raw datasets
 rm(state1, state2, stock_returns, dum_factors, num_factors, pub_factors)
@@ -110,18 +102,16 @@ for (j in 1:length(factor_name)) {
   vhat_factors <- vhat_factors %>% left_join(vhat_factor_j, by = 'STATE')
 }
 
-# write_csv(rhat_stocks, "rhat_stocks.csv")
-# write_csv(vhat_factors, "vhat_factors.csv")
-saveRDS(rhat_stocks, "D:/zoo/Data/results0221/rhat_stocks.rds")
-saveRDS(vhat_factors, "D:/zoo/Data/results0221/vhat_factors.rds")
+saveRDS(rhat_stocks, "~/new_bystate/rhat_stocks.rds")
+saveRDS(vhat_factors, "~/new_bystate/vhat_factors.rds")
 
 ###################################
 # estimate rv(s_t): n by (p+d) by T
 ###################################
 # rhat_stocks <- read_csv('D:/zoo/Data/rhat_stocks.csv')
 # vhat_factors <- read_csv('D:/zoo/Data/vhat_factors.csv')
-rhat_stocks <- readRDS("D:/zoo/Data/results0303/rhat_stocks.rds")
-vhat_factors <- readRDS("D:/zoo/Data/results0303/vhat_factors.rds")
+rhat_stocks <- readRDS("D:/zoo/Data/results0221/rhat_stocks.rds")
+vhat_factors <- readRDS("D:/zoo/Data/results0221/vhat_factors.rds")
 permno_new <- colnames(rhat_stocks)[-1]
 returns_new1 <- returns[,c('DATE', permno_new)]
 
@@ -173,9 +163,9 @@ for (s in 1:dim(sorted_state)[1]) {
 # compute covhat(s_t): n by (p+d) by T
 covhat <- rvhat - rhatvhat
 
-# saveRDS(rvhat, "rvhat.rds")
-# saveRDS(rhatvhat, "rhatvhat.rds")
-# saveRDS(covhat, "covhat.rds")
+# saveRDS(rvhat, "~/new_bystate/rvhat.rds")
+# saveRDS(rhatvhat, "~/new_bystate/rhatvhat.rds")
+# saveRDS(covhat, "~/new_bystate/covhat.rds")
 
 ###check
 object.size(rv)
@@ -195,7 +185,7 @@ rhat_stocks <- read_csv('D:/zoo/Data/rhat_stocks.csv')
 covhat <- readRDS("D:/zoo/Data/covhat.rds")
 # factor_name <- dimnames(covhat)[[2]]
 
-grid <- 10^seq(0, -3, length=100)
+grid <- 10^seq(0, -2, length=100)
 
 selection <- function(x, y, lambda = NULL, seednum = 1){
   set.seed(seednum)
@@ -254,27 +244,36 @@ for (s in 1:dim(covhat)[3]) {
   }
 }
 
-ds_selection <- readRDS('D:/zoo/Data/ds_selection.rds')
-ss_selection <- readRDS('D:/zoo/Data/ss_selection.rds')
-ps_ols <- readRDS('D:/zoo/Data/ps_ols.rds')
-factor_d_est <- readRDS('D:/zoo/Data/factor_d_est.rds')
+saveRDS(ds_selection, "~/new_bystate/ds_selection.rds")
+saveRDS(ss_selection, "~/new_bystate/ss_selection.rds")
+saveRDS(ps_ols, "~/new_bystate/ps_ols.rds")
+saveRDS(factor_d_est, "~/new_bystate/factor_d_est.rds")
+
 
 # num of selected factors over state 改date
-sselect_num <- tibble(DATE = state$DATE, STATE = state$STATE, selnum = apply(ss_selection, 2, sum))
+sselect_num <- tibble(STATE = sorted_state$STATE, selnum = apply(ss_selection, 2, sum))
 sselect_num %>% 
   ggplot(aes(x = STATE, y = selnum)) + 
   geom_line() + 
   labs(title = 'Number of factors selected by single-selection lasso')
 
-dselect_num <- tibble(DATE = state$DATE, STATE = state$STATE, selnum = apply(ds_selection, 2, sum))
+dselect_num <- tibble(STATE = sorted_state$STATE, selnum = apply(ds_selection, 2, sum))
 dselect_num %>% 
   ggplot(aes(x = STATE, y = selnum)) + 
   geom_line() + 
   labs(title = 'Number of factors selected by double-selection lasso')
 
 # times to be selected each factor
-persistency <- apply(ds_selection, 1, sum)
+persistency <- tibble(factor = factor_name, sel_rate = apply(ds_selection, 1, sum)/dim(ds_selection)[2])
+persistency %>% arrange(desc(sel_rate))
 
+ds_selection_neg <- ds_selection[,sorted_state<0]
+persistency_neg <- tibble(factor = factor_name, sel_rate = apply(ds_selection_neg, 1, sum)/dim(ds_selection_neg)[2])
+persistency_neg %>% arrange(desc(sel_rate))
+
+ds_selection_pos <- ds_selection[,sorted_state>0]
+persistency_pos <- tibble(factor = factor_name, sel_rate = apply(ds_selection_pos, 1, sum)/dim(ds_selection_pos)[2])
+persistency_pos %>% arrange(desc(sel_rate))
 # to save:
 # - selection results at each t (ds_selection)
 # - post-selection estimation results (ps_ols)
@@ -301,12 +300,12 @@ factor_d_state %>%
 factor_d_state %>% 
   ggplot(aes(x = STATE, y = estimate)) + 
   geom_line() + 
-  labs(title = 'Estimation of SDF loadings of RMW')
+  labs(title = paste('Estimation of SDF loadings of', factor_name[d]))
 
 factor_d_state %>% 
   ggplot(aes(x = STATE, y = t_value)) + 
   geom_line() + 
-  geom_hline(yintercept = c(-1.96, 1.96), linetype = 'dashed', colour = 'grey') + 
-  labs(title = 't-value of SDF loadings of RMW') 
+  geom_hline(yintercept = c(-1.96, 1.96), linetype = 'dashed', colour = 'blue') + 
+  labs(title = paste('t-value of SDF loadings of', factor_name[d]))
 
 
